@@ -3,7 +3,7 @@
 Flask app optimized for Render.com deployment
 """
 import os
-from simple_web import app
+from simple_bot import app
 
 # Configuration optimisée pour Render.com
 if __name__ == "__main__":
