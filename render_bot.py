@@ -1,27 +1,35 @@
-"""
-Contient la logique du bot Telegram
-"""
-
-import os
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from telegram import Update
-from telegram.ext import ContextTypes
 import logging
+from telegram.ext import (
+    Application, CommandHandler, ContextTypes
+)
+from telegram import Update
+from render_web import app
 
-from simple_bot import handle_message  # Import de la logique des messages
+# TOKEN direct ici
+TOKEN = "7749786995:AAGr9rk_uuykLLp5g7Hi3XwIlsdMfW9pWFw"
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Exemple de commande
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🤖 Bot en ligne avec Render !")
+    await update.message.reply_text("🤖 Bot Joker 3K est prêt !")
 
 def start_bot():
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    if not token:
-        raise ValueError("Token manquant !")
+    application = Application.builder().token(TOKEN).build()
 
-    logging.basicConfig(level=logging.INFO)
-    app = Application.builder().token(token).build()
+    # Ajouter des handlers
+    application.add_handler(CommandHandler("start", start))
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    # Injecter dans render_web
+    import render_web
+    render_web.telegram_app = application
 
-    app.run_polling()
+    # Webhook URL Render
+    webhook_url = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/{TOKEN}"
+
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000)),
+        webhook_url=webhook_url,
+    )
