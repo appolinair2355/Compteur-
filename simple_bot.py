@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 # Global variables
 style_affichage = 1
-
+TOKEN="7749786995:AAGr9rk_uuykLLp5g7Hi3XwIlsdMfW9pWFw"
 def save_bot_status(running, message=None, error=None):
     """Save status to file"""
     status = {
