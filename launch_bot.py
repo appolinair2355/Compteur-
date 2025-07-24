@@ -5,7 +5,8 @@ Lanceur de bot avec token intégré pour Replit
 import os
 import sys
 import logging
-
+from simple_bot import main
+from simple_web import app
 # Configuration du token
 os.environ["TELEGRAM_BOT_TOKEN"] = "7749786995:AAGr9rk_uuykLLp5g7Hi3XwIlsdMfW9pWFw"
 
