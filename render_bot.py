@@ -15,10 +15,9 @@ from telegram.ext import (
 
 from compteur import get_compteurs, update_compteurs, reset_compteurs_canal
 from style import afficher_compteurs_canal
-from create_deploy_package import create_deployment_package
 
 # --- Configuration ---
-TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "TON_TOKEN_ICI")
+TOKEN = os.environ.get("BOT_TOKEN")  # <- récupéré depuis Render
 PORT = int(os.environ.get("PORT", 10000))
 RENDER_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
 WEBHOOK_URL = f"https://{RENDER_HOSTNAME}/{TOKEN}"
@@ -38,17 +37,12 @@ processed_messages = set()
 style_affichage = 1
 
 # --- Fonctions de sauvegarde ---
-def save_bot_status(running, message=None, error=None):
-    status = {
-        "running": running,
-        "last_message": message,
-        "error": error
-    }
+def save_processed_messages():
     try:
-        with open("bot_status.json", "w") as f:
-            json.dump(status, f)
-    except:
-        pass
+        with open("processed_messages.json", "w") as f:
+            json.dump(list(processed_messages), f)
+    except Exception as e:
+        logger.warning(f"Erreur de sauvegarde: {e}")
 
 def load_processed_messages():
     global processed_messages
@@ -58,20 +52,13 @@ def load_processed_messages():
     except:
         processed_messages = set()
 
-def save_processed_messages():
-    try:
-        with open("processed_messages.json", "w") as f:
-            json.dump(list(processed_messages), f)
-    except:
-        pass
-
 def is_message_processed(key):
     return key in processed_messages
 
 def mark_message_processed(key):
     processed_messages.add(key)
 
-# --- Handlers Telegram ---
+# --- Handlers ---
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message:
@@ -80,10 +67,8 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Envoyez des cartes entre parenthèses, je les compte pour chaque canal.\n"
             "Exemple : (❤️♦️♣️♠️)\n\n"
             "Commandes disponibles :\n"
-            "/reset — Réinitialise les compteurs\n"
-            "/deposer — Crée le package Render"
+            "/reset — Réinitialise les compteurs"
         )
-        save_bot_status(True, f"Bot démarré dans {update.message.chat_id}")
 
 async def reset_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
@@ -96,26 +81,6 @@ async def reset_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_processed_messages()
 
     await update.message.reply_text("✅ Compteurs réinitialisés pour ce canal")
-    save_bot_status(True, f"Reset effectué pour {chat_id}")
-
-async def deposer_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-    try:
-        await update.message.reply_text("📦 Création du package en cours...")
-        zip_filename = create_deployment_package()
-        if os.path.exists(zip_filename):
-            await update.message.reply_document(
-                document=open(zip_filename, "rb"),
-                filename=zip_filename,
-                caption="✅ Package prêt pour Render !"
-            )
-        else:
-            await update.message.reply_text("❌ Erreur : fichier ZIP introuvable")
-        save_bot_status(True, "Package envoyé")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Erreur : {e}")
-        logger.error(f"Erreur deposer: {e}")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global style_affichage
@@ -195,7 +160,6 @@ if __name__ == "__main__":
 
     application.add_handler(CommandHandler("start", start_cmd))
     application.add_handler(CommandHandler("reset", reset_cmd))
-    application.add_handler(CommandHandler("deposer", deposer_cmd))
     application.add_handler(MessageHandler(filters.ALL, handle_message))
 
     application.bot.set_webhook(url=WEBHOOK_URL)
