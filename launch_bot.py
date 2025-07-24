@@ -1,32 +1,20 @@
 #!/usr/bin/env python3
 """
-Fichier principal de lancement du bot Telegram avec Flask pour Render.com
+Fichier principal de lancement du bot et du serveur Flask sur Render.com
 """
 
 import os
-import sys
-import logging
-import threading
-from render_bot import run_bot, run_web  # ✅ Remplace simple_bot et simple_web
+from dotenv import load_dotenv
+from renderbot import run_bot
+from renderweb import run_web
 
-# ✅ Configuration du token directement dans le code (évite .env)
-os.environ["TELEGRAM_BOT_TOKEN"] = "7749786995:AAGr9rk_uuykLLp5g7Hi3XwIlsdMfW9pWFw"
+# Charger les variables d'environnement
+load_dotenv()
 
-# ✅ Configuration du port (utile pour Render)
-PORT = int(os.getenv("PORT", 10000))  # Utilise 10000 si non défini
+# Configurer manuellement le token et le port si besoin
+os.environ["TELEGRAM_BOT_TOKEN"] = os.getenv("TELEGRAM_BOT_TOKEN", "7749786995:AAGr9rk_uuykLLp5g7Hi3XwIlsdMfW9pWFw")
+port = int(os.environ.get("PORT", 10000))  # Port par défaut : 10000
 
-try:
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
-    
-    logger.info("🚀 Démarrage du bot et du serveur web Flask...")
-
-    # ✅ Lancer le bot dans un thread
-    threading.Thread(target=run_bot).start()
-
-    # ✅ Lancer le serveur Flask sur le port défini
-    run_web(PORT)
-
-except Exception as e:
-    logger.error(f"❌ Erreur au lancement du bot : {e}")
-    sys.exit(1)
+if __name__ == "__main__":
+    run_bot()
+    run_web(port)
