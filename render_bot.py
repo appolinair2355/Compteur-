@@ -4,7 +4,16 @@ from telegram.ext import (
 )
 from telegram import Update
 from render_web import app
-
+import os
+import logging
+import sys
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram import Update
+from telegram.ext import ContextTypes
+from compteur import get_compteurs, update_compteurs, reset_compteurs_canal
+from style import afficher_compteurs_canal
+import re
+import json
 # TOKEN direct ici
 TOKEN = "7749786995:AAGr9rk_uuykLLp5g7Hi3XwIlsdMfW9pWFw"
 
@@ -39,16 +48,6 @@ def start_bot():
 """
 Bot with separated counters per channel
 """
-import os
-import logging
-import sys
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from telegram import Update
-from telegram.ext import ContextTypes
-from compteur import get_compteurs, update_compteurs, reset_compteurs_canal
-from style import afficher_compteurs_canal
-import re
-import json
 
 # Track processed messages per channel
 processed_messages = set()
