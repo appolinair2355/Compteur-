@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-Fichier principal de lancement du bot et du serveur Flask sur Render.com
+Fichier principal : configure l'environnement et démarre Flask ou Bot
 """
-
 import os
+import logging
 from dotenv import load_dotenv
-from renderbot import run_bot
-from renderweb import run_web
 
-# Charger les variables d'environnement
 load_dotenv()
+logging.basicConfig(level=logging.INFO)
 
-# Configurer manuellement le token et le port si besoin
-os.environ["TELEGRAM_BOT_TOKEN"] = os.getenv("TELEGRAM_BOT_TOKEN", "7749786995:AAGr9rk_uuykLLp5g7Hi3XwIlsdMfW9pWFw")
-port = int(os.environ.get("PORT", 10000))  # Port par défaut : 10000
+# Forcer le port Render
+os.environ['PORT'] = '10000'
+
+# Démarrage du serveur Flask (Webhook)
+from render_web import app  # app = Flask app
 
 if __name__ == "__main__":
-    run_bot()
-    run_web(port)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
