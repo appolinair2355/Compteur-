@@ -3,6 +3,7 @@ from telegram import Update
 from telegram.ext import Application
 import logging
 import asyncio
+import threading
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -24,3 +25,9 @@ async def webhook():
     update = Update.de_json(request.get_json(force=True), telegram_app.bot)
     await telegram_app.update_queue.put(update)
     return "OK", 200
+
+def start_server_in_background():
+    def run():
+        app.run(host="0.0.0.0", port=10000)
+    thread = threading.Thread(target=run)
+    thread.start()
