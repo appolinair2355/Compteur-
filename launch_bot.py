@@ -1,21 +1,32 @@
 #!/usr/bin/env python3
 """
-Fichier principal : configure l’environnement, le TOKEN, le PORT, et lance l’app Flask
+Fichier principal - Lance le bot et le serveur Flask
 """
+
 import os
 import logging
 
-# Définir manuellement les variables d’environnement
+# Configuration des variables d’environnement
 os.environ["TELEGRAM_BOT_TOKEN"] = "7749786995:AAGr9rk_uuykLLp5g7Hi3XwIlsdMfW9pWFw"
 os.environ["PORT"] = "10000"
-os.environ["WEBHOOK_URL"] = "https://ton-app.onrender.com/webhook"  # à adapter
 
 # Logger
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Lancer l'app Flask
-from render_web import app
+# Lancement du bot et du serveur Flask
+try:
+    from render_web import app  # App Flask
+    from render_bot import start_bot  # Fonction pour démarrer le bot Telegram
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    import threading
+
+    # Lancement du bot Telegram dans un thread séparé
+    threading.Thread(target=start_bot).start()
+
+    # Lancement de Flask
+    logger.info("🚀 Démarrage du serveur Flask...")
+    app.run(host="0.0.0.0", port=int(os.environ["PORT"]))
+
+except Exception as e:
+    logger.error(f"❌ Erreur au démarrage : {e}")
