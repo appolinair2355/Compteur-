@@ -1,166 +1,121 @@
 #!/usr/bin/env python3
 """
-render_bot.py — Bot Telegram avec Flask pour Render
+render_bot.py — Contient le bot Telegram + l'app Flask (webhook) pour Render
 """
 
 import os
-import json
 import logging
 import re
+import json
 from flask import Flask, request
-from telegram import Update
+from telegram import Update, Bot
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, ContextTypes, filters
 )
 
-from compteur import get_compteurs, update_compteurs, reset_compteurs_canal
-from style import afficher_compteurs_canal
-
-# --- Configuration ---
-TOKEN = os.environ.get("BOT_TOKEN")  # <- récupéré depuis Render
+# ⚠️ TOKEN EN DUR (moins sécurisé, mais demandé par toi)
+TOKEN = "7749786995:AAGr9rk_uuykLLp5g7Hi3XwIlsdMfW9pWFw"
 PORT = int(os.environ.get("PORT", 10000))
-RENDER_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
-WEBHOOK_URL = f"https://{RENDER_HOSTNAME}/{TOKEN}"
 
-# --- Flask app ---
+# Initialisation
 app = Flask(__name__)
-
-# --- Telegram App ---
-application = Application.builder().token(TOKEN).build()
-
-# --- Logger ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- Données globales ---
-processed_messages = set()
-style_affichage = 1
+# Variable globale pour l'application Telegram
+telegram_app = None
 
-# --- Fonctions de sauvegarde ---
-def save_processed_messages():
-    try:
-        with open("processed_messages.json", "w") as f:
-            json.dump(list(processed_messages), f)
-    except Exception as e:
-        logger.warning(f"Erreur de sauvegarde: {e}")
+# ========== Fonctions du bot ==========
 
-def load_processed_messages():
-    global processed_messages
-    try:
-        with open("processed_messages.json", "r") as f:
-            processed_messages = set(json.load(f))
-    except:
-        processed_messages = set()
+compteurs = {
+    "❤️": 0,
+    "♦️": 0,
+    "♣️": 0,
+    "♠️": 0
+}
+messages_traites = set()
 
-def is_message_processed(key):
-    return key in processed_messages
 
-def mark_message_processed(key):
-    processed_messages.add(key)
+def extraire_cartes_parenthese(message):
+    match = re.search(r"\((.*?)\)", message)
+    if match:
+        contenu = match.group(1)
+        cartes = re.findall(r"[A-Z0-9]+[❤️♦️♣️♠️]", contenu)
+        return cartes
+    return []
 
-# --- Handlers ---
 
-async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message:
-        await update.message.reply_text(
-            "🤖 Bot de Comptage de Cartes 🃏\n\n"
-            "Envoyez des cartes entre parenthèses, je les compte pour chaque canal.\n"
-            "Exemple : (❤️♦️♣️♠️)\n\n"
-            "Commandes disponibles :\n"
-            "/reset — Réinitialise les compteurs"
-        )
+def mettre_a_jour_compteurs(cartes):
+    for carte in cartes:
+        if carte[-1] in compteurs:
+            compteurs[carte[-1]] += 1
 
-async def reset_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
+
+def formater_compteurs():
+    return "\n".join([f"{symbole} : {count}" for symbole, count in compteurs.items()])
+
+
+def reset_compteurs():
+    for symbole in compteurs:
+        compteurs[symbole] = 0
+    messages_traites.clear()
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🤖 Bot actif. Envoyez des messages contenant des cartes !")
+
+
+async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    reset_compteurs()
+    await update.message.reply_text("✅ Compteurs remis à zéro.")
+
+
+async def afficher(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    texte = formater_compteurs()
+    await update.message.reply_text(f"📊 Compteurs actuels :\n{texte}")
+
+
+async def traiter_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message_id = update.message.message_id
     chat_id = update.message.chat_id
-    reset_compteurs_canal(chat_id)
 
-    global processed_messages
-    processed_messages = {k for k in processed_messages if not k.startswith(f"{chat_id}_")}
-    save_processed_messages()
-
-    await update.message.reply_text("✅ Compteurs réinitialisés pour ce canal")
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global style_affichage
-
-    msg = update.message or update.channel_post or update.edited_channel_post or update.edited_message
-    if not msg or not msg.text:
+    if (chat_id, message_id) in messages_traites:
         return
 
-    text = msg.text
-    chat_id = msg.chat_id
-    is_edited = update.edited_channel_post or update.edited_message
+    cartes = extraire_cartes_parenthese(update.message.text or "")
+    if cartes:
+        mettre_a_jour_compteurs(cartes)
+        messages_traites.add((chat_id, message_id))
+        texte = formater_compteurs()
+        await update.message.reply_text(f"✅ Compteurs mis à jour :\n{texte}")
 
-    match_num = re.search(r"#n(\d+)", text)
-    if not match_num:
-        return
 
-    numero = int(match_num.group(1))
-    key = f"{chat_id}_{numero}"
+# ========== Initialisation du bot ==========
 
-    progress = ['⏰', '▶', '🕐', '➡️']
-    confirmations = ['✅', '🔰']
-    if any(p in text for p in progress) and not any(c in text for c in confirmations):
-        return
+def start_bot():
+    global telegram_app
+    telegram_app = Application.builder().token(TOKEN).build()
 
-    if is_message_processed(key) and not is_edited:
-        return
+    telegram_app.add_handler(CommandHandler("start", start))
+    telegram_app.add_handler(CommandHandler("reset", reset))
+    telegram_app.add_handler(CommandHandler("afficher", afficher))
+    telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, traiter_message))
 
-    mark_message_processed(key)
-    save_processed_messages()
+    logger.info("🤖 Bot Telegram lancé.")
+    telegram_app.run_polling()
 
-    match = re.search(r"\((.*?)\)", text)
-    if not match:
-        return
 
-    content = match.group(1)
-    cards_found = {}
-    total = 0
+# ========== Webhook Flask ==========
 
-    heart = content.count("❤️") + content.count("♥️")
-    if heart:
-        update_compteurs(chat_id, "❤️", heart)
-        cards_found["❤️"] = heart
-        total += heart
-
-    for symbol in ["♦️", "♣️", "♠️"]:
-        count = content.count(symbol)
-        if count:
-            update_compteurs(chat_id, symbol, count)
-            cards_found[symbol] = count
-            total += count
-
-    if not cards_found:
-        return
-
-    try:
-        c = get_compteurs(chat_id)
-        response = afficher_compteurs_canal(c, style_affichage)
-        await msg.reply_text(response)
-    except Exception as e:
-        logger.error(f"Erreur d'envoi : {e}")
-
-# --- Webhook pour Telegram (Render) ---
-
-@app.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), application.bot)
-    application.update_queue.put(update)
-    return "OK", 200
-
-@app.route("/", methods=["GET"])
+@app.route("/")
 def index():
-    return "✅ Bot en ligne"
+    return "✅ Bot et serveur en ligne."
 
-# --- Lancement principal ---
-if __name__ == "__main__":
-    load_processed_messages()
 
-    application.add_handler(CommandHandler("start", start_cmd))
-    application.add_handler(CommandHandler("reset", reset_cmd))
-    application.add_handler(MessageHandler(filters.ALL, handle_message))
-
-    application.bot.set_webhook(url=WEBHOOK_URL)
-    app.run(host="0.0.0.0", port=PORT)
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    if request.method == "POST":
+        update = Update.de_json(request.get_json(force=True), bot=Bot(TOKEN))
+        if telegram_app:
+            telegram_app.update_queue.put_nowait(update)
+        return "OK"
