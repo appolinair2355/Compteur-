@@ -17,7 +17,7 @@ def load_env():
         "API_HASH",
         "TELEGRAM_BOT_TOKEN",
         "DATABASE_URL",
-        "ADMIN_ID"
+        "ADMIN_ID",         # ✅ VIRGULE CORRIGÉE ICI
         "WEBHOOK_URL"
     ]
 
@@ -28,4 +28,4 @@ def load_env():
         print(f"❌ Variables d'environnement manquantes : {', '.join(missing)}")
         exit(1)
     else:
-        print("✅ Toutes les variables critiques sont présentes")
+        print("✅ Toutes les variables d'environnement sont présentes")
