@@ -1,36 +1,37 @@
 import os
 import asyncio
 import logging
+import nest_asyncio
 from load_env import load_env
-from render_web import start_server_in_background
+from render_web import app
 from render_bot import start_bot
 
-# Configuration du logging
+from threading import Thread
+from werkzeug.serving import run_simple
+
+# Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-async def main():
-    """Point d'entrée principal pour Render.com"""
-    load_env()
-    
-    # Configuration du port pour Render (déjà défini à 10000)
-    render_port = int(os.environ.get("PORT", 10000))
-    os.environ["PORT"] = str(render_port)
-    
-    logger.info(f"🚀 🤖 Joker 3K démarré sur Render.com avec le port {render_port}")
-    
-    # Démarrer le serveur Flask (render_web.py)
-    start_server_in_background()
+# Patch la boucle déjà active (Render)
+nest_asyncio.apply()
 
-    # Démarrer le bot principal (render_bot.py)
+def start_server_in_background():
+    def run():
+        run_simple('0.0.0.0', int(os.getenv("PORT", 10000)), app, use_reloader=False)
+    Thread(target=run).start()
+
+async def main():
+    load_env()
+    logger.info("🚀 Lancement du serveur Flask")
+    start_server_in_background()
+    logger.info("🤖 Démarrage du bot Telegram")
     await start_bot()
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("🛑 Bot arrêté par l'utilisateur")
+        logger.info("🛑 Bot arrêté manuellement")
     except Exception as e:
-        logger.error(f"❌ Erreur: {e}")
-        import time
-        time.sleep(30)
+        logger.error(f"❌ Erreur : {e}")
