@@ -18,6 +18,7 @@ def load_env():
         "TELEGRAM_BOT_TOKEN",
         "DATABASE_URL",
         "ADMIN_ID"
+        "WEBHOOK_URL"
     ]
 
     # Vérification de leur présence
